@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Milhas - Ouro Investimentos</title>
+    <!-- Carrega o Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carrega a fonte Inter do Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Carrega o React e ReactDOM via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Carrega o Babel para transpilar JSX no navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Carrega jsPDF para gerar relatórios em PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body style="font-family: 'Inter', sans-serif;">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Funções auxiliares globais (para serem usadas em todos os componentes)
+        const formatCurrency = (value) => {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) return '';
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(numValue);
+        };
+
+        const formatQuantity = (value) => {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) return '';
+            return new Intl.NumberFormat('pt-BR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(numValue);
+        };
+
+        const toTitleCase = (str) => {
+            if (!str) return '';
+            return str.toLowerCase().split(' ').map((word) => {
+                return (word.charAt(0).toUpperCase() + word.slice(1));
+            }).join(' ');
+        };
+
+        const toSentenceCase = (str) => {
+            if (!str) return '';
+            const lowerStr = str.toLowerCase();
+            let result = lowerStr.charAt(0).toUpperCase() + lowerStr.slice(1);
+            result = result.replace(/(\.\s*)([a-z])/g, (match, p1, p2) => p1 + p2.toUpperCase());
+            return result;
+        };
+
+        // Componente da Calculadora de Milhas
+        const CalculadoraMilhas = () => {
+            const [custoPontos, setCustoPontos] = React.useState(24.50);
+            const [qtdMilhas, setQtdMilhas] = React.useState(1000);
+            const [bonusPercent90, setBonusPercent90] = React.useState(90);
+            const [bonusPercent80, setBonusPercent80] = React.useState(80);
+            const [bonusPercent75, setBonusPercent75] = React.useState(75);
+            const [bonusPercent70, setBonusPercent70] = React.useState(70);
+            const [valorPagoMilhas, setValorPagoMilhas] = React.useState(699);
+            const [milhasTeras, setMilhasTeras] = React.useState(40000);
+            const [milheiroAtualSmiles, setMilheiroAtualSmiles] = React.useState(15.00);
+            const [milheiroAtualAzul, setMilheiroAtualAzul] = React.useState(18.00);
+            const [milheiroAtualLatam, setMilheiroAtualLatam] = React.useState(26.00);
+            const [milheiroAtualTap, setMilheiroAtualTap] = React.useState(72.00);
+            const [valorMilheiro, setValorMilheiro] = React.useState(26.00);
+            const [selectedMilheiroSource, setSelectedMilheiroSource] = React.useState('latam');
+            const [lucroReal, setLucroReal] = React.useState(0);
+            const [lucroPorcentagem, setLucroPorcentagem] = React.useState(0);
+            const [showExplanation, setShowExplanation] = React.useState(false); // Novo estado para controlar a exibição da explicação
+
+            const calculateValorMilheiroTransferencia = (bonusPercentage) => {
+                const currentQtdMilhas = parseFloat(qtdMilhas) || 0;
+                const currentCustoPontos = parseFloat(custoPontos) || 0;
+                const milhasComBonus = currentQtdMilhas * (1 + bonusPercentage / 100);
+                const custoTotalPontosOriginais = currentCustoPontos * currentQtdMilhas;
+                const custoPorMilheiro = milhasComBonus === 0 ? 0 : (custoTotalPontosOriginais / milhasComBonus) * 1000;
+                return custoPorMilheiro;
+            };
+
+            const valorFinalMilhas = React.useMemo(() => {
+                const currentMilhasTeras = parseFloat(milhasTeras) || 0;
+                const currentValorMilheiro = parseFloat(valorMilheiro) || 0;
+                return (currentMilhasTeras / 1000) * currentValorMilheiro;
+            }, [milhasTeras, valorMilheiro]);
+
+            React.useEffect(() => {
+                const calculatedLucroReal = valorFinalMilhas - (parseFloat(valorPagoMilhas) || 0);
+                setLucroReal(calculatedLucroReal);
+                const calculatedLucroPorcentagem = (parseFloat(valorPagoMilhas) || 0) !== 0 ? (calculatedLucroReal / (parseFloat(valorPagoMilhas) || 0)) * 100 : 0;
+                setLucroPorcentagem(calculatedLucroPorcentagem);
+            }, [valorPagoMilhas, valorFinalMilhas]);
+
+            React.useEffect(() => {
+                switch (selectedMilheiroSource) {
+                    case 'smiles': setValorMilheiro(milheiroAtualSmiles); break;
+                    case 'azul': setValorMilheiro(milheiroAtualAzul); break;
+                    case 'latam': setValorMilheiro(milheiroAtualLatam); break;
+                    case 'tap': setValorMilheiro(milheiroAtualTap); break;
+                    default: setValorMilheiro(0);
+                }
+            }, [selectedMilheiroSource, milheiroAtualSmiles, milheiroAtualAzul, milheiroAtualLatam, milheiroAtualTap]);
+
+            // Função para gerar o relatório em PDF (mantida, mas o botão foi removido)
+            const handleGeneratePdf = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Definir fundo da página como cinza escuro
+                doc.setFillColor(51, 51, 51); // #333333
+                doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, 'F');
+
+                // Título principal
+                doc.setFontSize(22);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Relatório da Calculadora de Milhas", 105, 20, null, null, "center");
+
+                let yPos = 40; // Posição Y inicial para o conteúdo
+
+                // Seção: Análise Estratégica da Operação (adaptado do Hedge Agro)
+                doc.setFontSize(16);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Análise Estratégica da Operação", 10, yPos);
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text("Indicadores para tomada de decisão", 10, yPos);
+                yPos += 15;
+
+                // Layout de 2 colunas para os principais resultados
+                const col1X = 10;
+                const col2X = 105; // Meio da página
+                const lineHeight = 8;
+
+                // Lucro por Animal
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text("Lucro por Animal:", col1X, yPos);
+                doc.setFontSize(16);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`${formatCurrency(lucroReal)}`, col1X, yPos + lineHeight);
+                yPos += 20;
+
+                // Lucro Percentual
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text("Lucro Percentual:", col1X, yPos);
+                doc.setFontSize(16);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`${lucroPorcentagem.toFixed(2).replace('.', ',')}%`, col1X, yPos + lineHeight);
+                yPos += 20;
+
+                // Linha divisória
+                doc.setDrawColor('#997F2E'); // Dourado escuro
+                doc.line(10, yPos, 200, yPos);
+                yPos += 10;
+
+                // Dados de Entrada
+                doc.setFontSize(14);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Dados de Entrada", 10, yPos);
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`Custo dos Pontos: ${formatCurrency(custoPontos)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Quantidade de Milhas: ${formatQuantity(qtdMilhas)}`, 10, yPos);
+                yPos += lineHeight + 5;
+
+                // Percentuais de Bônus
+                doc.setFontSize(14);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Percentuais de Bônus", 10, yPos);
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`Bônus 1 (90%): ${bonusPercent90}% - Valor Real Milheiro: ${formatCurrency(calculateValorMilheiroTransferencia(bonusPercent90))}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Bônus 2 (80%): ${bonusPercent80}% - Valor Real Milheiro: ${formatCurrency(calculateValorMilheiroTransferencia(bonusPercent80))}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Bônus 3 (75%): ${bonusPercent75}% - Valor Real Milheiro: ${formatCurrency(calculateValorMilheiroTransferencia(bonusPercent75))}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Bônus 4 (70%): ${bonusPercent70}% - Valor Real Milheiro: ${formatCurrency(calculateValorMilheiroTransferencia(bonusPercent70))}`, 10, yPos);
+                yPos += lineHeight + 5;
+
+                // Valores do Milheiro Atualmente
+                doc.setFontSize(14);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Valores do Milheiro Atualmente", 10, yPos);
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`SMILES: ${formatCurrency(milheiroAtualSmiles)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`AZUL: ${formatCurrency(milheiroAtualAzul)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`LATAM: ${formatCurrency(milheiroAtualLatam)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`TAP: ${formatCurrency(milheiroAtualTap)}`, 10, yPos);
+                yPos += lineHeight + 5;
+
+                // Detalhes do Cálculo de Lucro
+                doc.setFontSize(14);
+                doc.setTextColor('#C5A639'); // Dourado
+                doc.text("Detalhes do Cálculo de Lucro", 10, yPos);
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`Quanto Você Pagou Pelas Milhas: ${formatCurrency(valorPagoMilhas)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Quantas Milhas Você Terá: ${formatQuantity(milhasTeras)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Onde Você Comprou As Milhas: ${toTitleCase(selectedMilheiroSource)}`, 10, yPos);
+                yPos += lineHeight;
+                doc.text(`Preço do milheiro selecionado: ${formatCurrency(valorMilheiro)}`, 10, yPos);
+                yPos += lineHeight + 10;
+
+                // Frases de resumo como no Hedge Agro PDF
+                doc.setFontSize(14);
+                doc.setTextColor('#FFFFFF'); // Branco
+                doc.text(`Você teria um lucro de ${formatCurrency(lucroReal)} por animal neste cenário.`, 10, yPos);
+                yPos += lineHeight + 5;
+                doc.text(`Esta operação gera uma margem positiva de ${lucroPorcentagem.toFixed(2).replace('.', ',')}% ao mês.`, 10, yPos);
+                yPos += lineHeight + 5;
+
+
+                doc.save("relatorio_milhas.pdf");
+            };
+
+
+            return (
+                <div className="min-h-screen bg-[#333333] flex items-center justify-center p-4"> {/* Fundo cinza escuro */}
+                    <div className="bg-[#EAEAEA] p-8 rounded-lg shadow-xl w-full max-w-4xl text-[#000000]"> {/* Cartão principal cinza claro, texto preto */}
+                        <div className="flex justify-center mb-4">
+                            
+                        </div>
+                        <h1 className="text-3xl md:text-4xl font-bold text-center text-[#C5A639] mb-8"> {/* Título em dourado */}
+                            {toTitleCase("Calculadora de Milhas")}
+                        </h1>
+                        <p className="text-center text-[#333333] mb-8">Análise estratégica para maximizar o retorno das suas milhas</p> {/* Subtítulo em cinza escuro */}
+
+
+                        {/* Seção de Compra de Pontos */}
+                        <div className="bg-[#FFFFFF] rounded-lg p-6 shadow-lg border border-[#EAEAEA] mb-8"> {/* Cartão interno branco */}
+                            <h2 className="text-2xl font-semibold text-[#333333] mb-4 border-b border-[#997F2E] pb-2"> {/* Título em cinza escuro, borda em dourado escuro */}
+                                {"COMPRA DE PONTOS".toUpperCase()}
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label htmlFor="custoPontos" className="block text-sm font-medium text-[#333333] mb-1"> {/* Texto do label cinza escuro */}
+                                        {toTitleCase("Custo Dos Pontos")} (R$)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="custoPontos"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm focus:ring-[#C5A639] focus:border-[#C5A639] bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto, bordas e focus dourados */
+                                        value={custoPontos}
+                                        onChange={(e) => setCustoPontos(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="qtdMilhas" className="block text-sm font-medium text-[#333333] mb-1"> {/* Texto do label cinza escuro */}
+                                        {toTitleCase("Qtd De Milhas")}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="qtdMilhas"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm focus:ring-[#C5A639] focus:border-[#C5A639] bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto, bordas e focus dourados */
+                                        value={qtdMilhas}
+                                        onChange={(e) => setQtdMilhas(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <label htmlFor="bonusPercent" className="block text-sm font-medium text-[#333333] mb-2"> {/* Texto do label cinza escuro */}
+                                    {toTitleCase("% Do Bônus (Insira A Porcentagem)")}
+                                </label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div>
+                                        <label htmlFor="bonusPercent90" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Bônus 1 (%)")}</label> {/* Texto do label cinza escuro */}
+                                        <input
+                                            type="number"
+                                            id="bonusPercent90"
+                                            className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                            value={bonusPercent90}
+                                            onChange={(e) => setBonusPercent90(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="bonusPercent80" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Bônus 2 (%)")}</label> {/* Texto do label cinza escuro */}
+                                        <input
+                                            type="number"
+                                            id="bonusPercent80"
+                                            className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                            value={bonusPercent80}
+                                            onChange={(e) => setBonusPercent80(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="bonusPercent75" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Bônus 3 (%)")}</label> {/* Texto do label cinza escuro */}
+                                        <input
+                                            type="number"
+                                            id="bonusPercent75"
+                                            className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                            value={bonusPercent75}
+                                            onChange={(e) => setBonusPercent75(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="bonusPercent70" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Bônus 4 (%)")}</label> {/* Texto do label cinza escuro */}
+                                        <input
+                                            type="number"
+                                            id="bonusPercent70"
+                                            className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                            value={bonusPercent70}
+                                            onChange={(e) => setBonusPercent70(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <h3 className="text-lg font-medium text-[#333333] mb-2"> {/* Texto do título cinza escuro */}
+                                    {toTitleCase("Valor Real do Milheiro Após a Transferência")}
+                                </h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#EAEAEA] p-3 rounded-md"> {/* Fundo cinza claro para os resultados */}
+                                    <div className="text-sm text-[#000000]"> {/* Texto preto */}
+                                        <span className="font-semibold">{toTitleCase("Bônus 1")}:</span> {formatCurrency(calculateValorMilheiroTransferencia(bonusPercent90))}
+                                    </div>
+                                    <div className="text-sm text-[#000000]"> {/* Texto preto */}
+                                        <span className="font-semibold">{toTitleCase("Bônus 2")}:</span> {formatCurrency(calculateValorMilheiroTransferencia(bonusPercent80))}
+                                    </div>
+                                    <div className="text-sm text-[#000000]"> {/* Texto preto */}
+                                        <span className="font-semibold">{toTitleCase("Bônus 3")}:</span> {formatCurrency(calculateValorMilheiroTransferencia(bonusPercent75))}
+                                    </div>
+                                    <div className="text-sm text-[#000000]"> {/* Texto preto */}
+                                        <span className="font-semibold">{toTitleCase("Bônus 4")}:</span> {formatCurrency(calculateValorMilheiroTransferencia(bonusPercent70))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Seção de Valores do Milheiro Atualmente */}
+                        <div className="bg-[#FFFFFF] rounded-lg p-6 shadow-lg border border-[#EAEAEA] mb-8"> {/* Cartão interno branco */}
+                            <h2 className="text-2xl font-semibold text-[#333333] mb-4 border-b border-[#997F2E] pb-2"> {/* Título em cinza escuro, borda em dourado escuro */}
+                                {"VALOR DO MILHEIRO ATUALMENTE".toUpperCase()}
+                            </h2>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div>
+                                    <label htmlFor="milheiroAtualSmiles" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Smiles")} (R$)</label> {/* Texto do label cinza escuro */}
+                                    <input
+                                        type="number"
+                                        id="milheiroAtualSmiles"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                        value={milheiroAtualSmiles}
+                                        onChange={(e) => setMilheiroAtualSmiles(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="milheiroAtualAzul" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Azul")} (R$)</label> {/* Texto do label cinza escuro */}
+                                    <input
+                                        type="number"
+                                        id="milheiroAtualAzul"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                        value={milheiroAtualAzul}
+                                        onChange={(e) => setMilheiroAtualAzul(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="milheiroAtualLatam" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Latam")} (R$)</label> {/* Texto do label cinza escuro */}
+                                    <input
+                                        type="number"
+                                        id="milheiroAtualLatam"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                        value={milheiroAtualLatam}
+                                        onChange={(e) => setMilheiroAtualLatam(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="milheiroAtualTap" className="block text-xs font-medium text-[#333333] mb-1">{toTitleCase("Tap")} (R$)</label> {/* Texto do label cinza escuro */}
+                                    <input
+                                        type="number"
+                                        id="milheiroAtualTap"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto */
+                                        value={milheiroAtualTap}
+                                        onChange={(e) => setMilheiroAtualTap(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-sm text-[#333333] mt-2">{toSentenceCase("Neste campo preencha o valor do milheiro atualizado.")}</p>
+                        </div>
+
+                        {/* Seção de Cálculos */}
+                        <div className="bg-[#FFFFFF] rounded-lg p-6 shadow-lg border border-[#EAEAEA] mb-8"> {/* Cartão interno branco */}
+                            <h2 className="text-2xl font-semibold text-[#333333] mb-4 border-b border-[#997F2E] pb-2"> {/* Título em cinza escuro, borda em dourado escuro */}
+                                {"QUAL É A MELHOR OPÇÃO?".toUpperCase()}
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label htmlFor="valorPagoMilhas" className="block text-sm font-medium text-[#333333] mb-1"> {/* Texto do label cinza escuro */}
+                                        {toTitleCase("Quanto Você Pagou Pelas Milhas?")} (R$)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="valorPagoMilhas"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm focus:ring-[#C5A639] focus:border-[#C5A639] bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto, bordas e focus dourados */
+                                        value={valorPagoMilhas}
+                                        onChange={(e) => setValorPagoMilhas(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="milhasTeras" className="block text-sm font-medium text-[#333333] mb-1"> {/* Texto do label cinza escuro */}
+                                        {toTitleCase("Quantas Milhas Você Terá?")}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="milhasTeras"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm focus:ring-[#C5A639] focus:border-[#C5A639] bg-[#FFFFFF] text-[#000000]" /* Input com fundo branco, texto preto, bordas e focus dourados */
+                                        value={milhasTeras}
+                                        onChange={(e) => setMilhasTeras(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="selectedMilheiroSource" className="block text-sm font-medium text-[#333333] mb-1"> {/* Texto do label cinza escuro */}
+                                        {toTitleCase("Onde Você Comprou As Milhas?")}
+                                    </label>
+                                    <select
+                                        id="selectedMilheiroSource"
+                                        className="w-full p-2 border border-[#997F2E] rounded-md shadow-sm focus:ring-[#C5A639] focus:border-[#C5A639] bg-[#FFFFFF] text-[#000000]" /* Select com fundo branco, texto preto, bordas e focus dourados */
+                                        value={selectedMilheiroSource}
+                                        onChange={(e) => setSelectedMilheiroSource(e.target.value)}
+                                    >
+                                        <option value="smiles">{toTitleCase("Smiles")}</option>
+                                        <option value="azul">{toTitleCase("Azul")}</option>
+                                        <option value="latam">{toTitleCase("Latam")}</option>
+                                        <option value="tap">{toTitleCase("Tap")}</option>
+                                    </select>
+                                    {/* Removido o input e substituído por um parágrafo */}
+                                    <p className="text-sm font-medium text-[#333333] mt-3 mb-1">
+                                        Preço do milheiro {toTitleCase(selectedMilheiroSource)}: {formatCurrency(valorMilheiro)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                <div className="bg-[#997F2E] p-4 rounded-md shadow-sm"> {/* Fundo dourado secundário */}
+                                    <h3 className="text-lg font-medium text-[#FFFFFF]">{"VALOR FINAL DAS MILHAS".toUpperCase()}</h3> {/* Título branco */}
+                                    <p className="text-2xl font-bold text-[#FFFFFF]">{formatCurrency(valorFinalMilhas)}</p> {/* Valor branco */}
+                                </div>
+                                <div className="bg-[#C5A639] p-4 rounded-md shadow-sm"> {/* Fundo dourado principal */}
+                                    <h3 className="text-lg font-medium text-[#FFFFFF]">{"CUSTO INICIAL EM DINHEIRO".toUpperCase()}</h3> {/* Título branco */}
+                                    <p className="text-2xl font-bold text-[#FFFFFF]">{formatCurrency(valorPagoMilhas)}</p> {/* Valor branco */}
+                                </div>
+                            </div>
+                            <div className="mt-6 text-center text-lg font-semibold text-[#333333]">
+                                <div className="bg-[#EAEAEA] p-4 rounded-md shadow-sm text-black">
+                                    {lucroReal >= 0 ? (
+                                        <>
+                                            <p>A diferença entre emitir a passagem com milhas ou comprar em dinheiro é de <span className="text-[#C5A639] font-bold">{formatCurrency(lucroReal)}</span>.</p>
+                                            <p className="text-xl mt-2 font-bold text-[#C5A639]">Por isso, é melhor emitir as passagens com milhas.</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p>A diferença entre emitir a passagem com milhas ou comprar em dinheiro é de <span className="text-[#C5A639] font-bold">{formatCurrency(lucroReal * -1)}</span>.</p>
+                                            <p className="text-xl mt-2 font-bold text-[#C5A639]">Por isso, é melhor comprar as passagens com dinheiro.</p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center mt-6">
+                            <button
+                                onClick={() => setShowExplanation(!showExplanation)}
+                                className="bg-[#C5A639] text-[#FFFFFF] px-4 py-2 rounded-md text-sm font-bold shadow-md hover:bg-[#A88B32] transition-colors duration-200"
+                            >
+                                {showExplanation ? "Ocultar explicação" : "Entenda como funciona a calculadora"}
+                            </button>
+                        </div>
+                        
+                        {showExplanation && (
+                            <div className="mt-8 pt-4 border-t border-[#997F2E]"> {/* Borda em dourado escuro */}
+                                <h2 className="text-lg font-semibold text-[#C5A639] mb-4">Como Funciona a Calculadora de Milhas</h2> {/* Título em dourado */}
+                                <div className="text-[#666666] text-justify text-sm space-y-4"> {/* Texto em cinza claro */}
+                                    <p>
+                                        Esta página foi desenvolvida para ajudar a simular e analisar a rentabilidade de suas operações com milhas aéreas. Ela permite que você insira dados essenciais de compra e venda para calcular o retorno em milhas e dinheiro.
+                                    </p>
+                                    <p>
+                                        Para usar a calculadora, preencha os campos nas seções "Compra de Pontos" e "Qual é a melhor opção?". Na seção "Valor do Milheiro Atualmente", você pode atualizar os preços de mercado das milhas para cada programa (Smiles, Azul, Latam, TAP). Na seção "Qual é a melhor opção?", você seleciona a "casa" de milhas e o valor do milheiro correspondente será automaticamente preenchido.
+                                    </p>
+                                    
+                                    <h3 className="text-base font-medium text-[#C5A639]">Entendendo os Cálculos:</h3>
+                                    <p className="bg-[#EAEAEA] p-2 rounded-md overflow-x-auto text-[#000000] font-mono">
+                                        Valor Final das Milhas = ( (Quantidade de Milhas que Você Terá / 1000) * Preço do Milheiro )
+                                    </p>
+                                    <p>
+                                        A quantidade total de milhas que você terá é dividida por 1000 para converter para "milheiros". Em seguida, esse valor é multiplicado pelo preço de venda do milheiro que você selecionou. Isso resulta no valor total que você receberia ao vender suas milhas.
+                                    </p>
+                                    <h4 className="text-base font-medium text-[#C5A639]">Comparativo de Valor:</h4>
+                                    <p className="bg-[#EAEAEA] p-2 rounded-md overflow-x-auto text-[#000000] font-mono">
+                                        Diferença de Valor = Valor Final das Milhas - Custo Inicial em Dinheiro
+                                    </p>
+                                    <p>
+                                        A calculadora compara o valor final que você teria com suas milhas com o custo inicial que você pagou por elas, mostrando a diferença de valor. Um valor positivo indica que o investimento em milhas foi mais vantajoso.
+                                    </p>
+                                    <h3 className="text-base font-medium text-[#C5A639]">Análise de Valor:</h3>
+                                    <ul className="list-none space-y-2">
+                                        <li className="text-[#666666]"><span className="text-[#C5A639] mr-2">•</span>
+                                            <strong className="text-[#C5A639]">Valor Positivo:</strong> Quando o seu valor final em milhas é maior do que o seu custo inicial em dinheiro, o resultado é positivo, indicando um retorno sobre o investimento.
+                                        </li>
+                                        <li className="text-[#666666]"><span className="text-[#C5A639] mr-2">•</span>
+                                            <strong className="text-[#C5A639]">Valor Negativo:</strong> Se o seu valor final em milhas for menor do que o seu custo inicial, o resultado é negativo, indicando que o capital poderia ter sido alocado em outra oportunidade.
+                                        </li>
+                                    </ul>
+                                    <p>
+                                        A calculadora serve como uma ferramenta para simular esses cenários e auxiliar na tomada de decisões estratégicas sobre suas milhas.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        <p className="text-sm text-[#333333] mt-8 text-justify">
+                            Obs: Nesta parte da planilha, você altera somente o custo dos pontos, e a quantidade de milhas. Perceba que o valor real do milheiro após a transferência aparece abaixo.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // Renderiza o componente principal do aplicativo na div com id "root"
+        ReactDOM.createRoot(document.getElementById('root')).render(<CalculadoraMilhas />);
+    </script>
+</body>
+</html>
